@@ -1111,10 +1111,12 @@ func (fs *FSObjects) putObject(ctx context.Context, bucket string, object string
 		if err != nil {
 			return ObjectInfo{}, toObjectErr(err, bucket, object)
 		}
+		tempObj := mustGetUUID()
 
-		if err := writeId(p, bId); err != nil {
-			return ObjectInfo{}, err
-		}
+		fsTmpObjPath := pathJoin(fs.fsPath, minioMetaTmpBucket, fs.fsUUID, tempObj)
+		_, err = fsCreateFile(ctx, fsTmpObjPath, strings.NewReader(bId))
+
+		fsRenameFile(ctx, fsTmpObjPath, p)
 		// Stat the file to fetch timestamp, size.
 		fi, err := fsStatFile(ctx, pathJoin(fs.fsPath, bucket, object))
 		if err != nil {
@@ -1160,7 +1162,7 @@ func (fs *FSObjects) putObject(ctx context.Context, bucket string, object string
 	tempObj := mustGetUUID()
 
 	fsTmpObjPath := pathJoin(fs.fsPath, minioMetaTmpBucket, fs.fsUUID, tempObj)
-	_, err = fsCreateFile(ctx, fsTmpObjPath, data, data.Size())
+	_, err = fsCreateFile(ctx, fsTmpObjPath, data)
 
 	// Delete the temporary object in the case of a
 	// failure. If PutObject succeeds, then there would be
@@ -1202,26 +1204,6 @@ func (fs *FSObjects) putObject(ctx context.Context, bucket string, object string
 
 func isSysCall(path string) bool {
 	return strings.Contains(path, minioMetaBucket)
-}
-
-func writeId(path string, id string) error {
-
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		if err := f.Close(); err != nil {
-			fmt.Println("error closing file: ", id, err)
-		}
-	}()
-
-	if _, err := f.Write([]byte(id)); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // DeleteObjects - deletes an object from a bucket, this operation is destructive
