@@ -320,7 +320,7 @@ func (fs *FSObjects) PutObjectPart(ctx context.Context, bucket, object, uploadID
 	}
 
 	tmpPartPath := pathJoin(fs.fsPath, minioMetaTmpBucket, fs.fsUUID, uploadID+"."+mustGetUUID()+"."+strconv.Itoa(partID))
-	bytesWritten, err := fsCreateFile(ctx, tmpPartPath, data, data.Size())
+	bytesWritten, err := fsCreateFile(ctx, tmpPartPath, data)
 
 	// Delete temporary part in case of failure. If
 	// PutObjectPart succeeds then there would be nothing to
