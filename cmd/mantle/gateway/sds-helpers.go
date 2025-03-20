@@ -11,13 +11,15 @@ import (
 )
 
 type config struct {
-	SdsUrl string `json:"sdsUrl"`
-	ApiKey string `json:"apiKey"`
+	SdsUrl    string `json:"sdsUrl"`
+	ApiKey    string `json:"apiKey"`
+	SentryDNS string `json:"sentryDNS"`
+	SentryEnv string `json:"sentryEnv"`
 }
 
 var (
-	mantleConfig    config
-	GATEWAY_ID_LEN  = 24
+	MantleConfig   config
+	GATEWAY_ID_LEN = 24
 	SDS_CONFIG_PATH = "SDS_CONFIG_PATH"
 )
 
@@ -39,7 +41,7 @@ func init() {
 		log.Fatal("Error reading mantle config file.")
 	}
 
-	err = json.Unmarshal(b, &mantleConfig)
+	err = json.Unmarshal(b, &MantleConfig)
 	if err != nil {
 		log.Fatal("Error parsing json")
 	}
@@ -62,7 +64,7 @@ func GetId(r io.Reader) (string, error) {
 }
 
 func urlJoin(params ...string) string {
-	u, _ := url.Parse(mantleConfig.SdsUrl)
+	u, _ := url.Parse(MantleConfig.SdsUrl)
 
 	for _, p := range params {
 		u.Path = path.Join(u.Path, p)
@@ -73,7 +75,7 @@ func urlJoin(params ...string) string {
 
 func setMantleHeaders(configId string) map[string]string {
 	return map[string]string{
-		"x-api-key":    mantleConfig.ApiKey,
+		"x-api-key":    MantleConfig.ApiKey,
 		"s3-config-id": configId,
 	}
 }

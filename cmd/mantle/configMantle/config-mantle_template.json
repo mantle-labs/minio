@@ -1,4 +1,6 @@
 {
   "SdsUrl":"https://develop.sds.mantle.technology",
-  "ApiKey":"test"
+  "ApiKey":"test",
+  "SentryDNS": "",
+  "SentreEnv": "develop"
 }

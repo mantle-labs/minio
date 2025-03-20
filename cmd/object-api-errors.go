@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/getsentry/sentry-go"
 	"io"
 )
 
@@ -34,6 +35,10 @@ func toObjectErr(err error, params ...string) error {
 	if errors.Is(err, context.Canceled) {
 		return context.Canceled
 	}
+	sentry.WithScope(func(scope *sentry.Scope) {
+		sentry.CaptureException(err)
+	})
+
 	switch err.Error() {
 
 	case errVolumeNotFound.Error():

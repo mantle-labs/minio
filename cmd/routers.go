@@ -18,6 +18,7 @@
 package cmd
 
 import (
+	"github.com/minio/minio/cmd/mantle"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -89,6 +90,7 @@ func configureServerHandler(endpointServerPools EndpointServerPools) (http.Handl
 	// Add API router
 	registerAPIRouter(router)
 
+	router.Use(mantle.SentryHttpHandler.Handle)
 	router.Use(globalHandlers...)
 
 	return router, nil
