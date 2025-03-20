@@ -18,6 +18,7 @@
 package cmd
 
 import (
+	"github.com/minio/minio/cmd/mantle"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -60,6 +61,7 @@ var globalHandlers = []mux.MiddlewareFunc{
 	addCustomHeaders,
 	// Add bucket forwarding handler
 	setBucketForwardingHandler,
+	mantle.SentryHttpHandler.Handle,
 	// Add new handlers here.
 }
 

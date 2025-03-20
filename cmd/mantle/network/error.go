@@ -15,5 +15,6 @@ type MantleError struct {
 func parseMantleError(body []byte) error {
 	var mantleError MantleError
 	json.Unmarshal(body, &mantleError)
-	return errors.New(strings.NewReplacer("[", "", "]", "", `"`, "").Replace(mantleError.Body))
+	err := errors.New(strings.NewReplacer("[", "", "]", "", `"`, "").Replace(mantleError.Body))
+	return err
 }
