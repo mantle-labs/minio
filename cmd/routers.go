@@ -61,6 +61,7 @@ var globalHandlers = []mux.MiddlewareFunc{
 	addCustomHeaders,
 	// Add bucket forwarding handler
 	setBucketForwardingHandler,
+	mantle.SentryHttpHandler.Handle,
 	// Add new handlers here.
 }
 
@@ -90,7 +91,6 @@ func configureServerHandler(endpointServerPools EndpointServerPools) (http.Handl
 	// Add API router
 	registerAPIRouter(router)
 
-	router.Use(mantle.SentryHttpHandler.Handle)
 	router.Use(globalHandlers...)
 
 	return router, nil
