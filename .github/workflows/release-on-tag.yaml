@@ -76,6 +76,15 @@ jobs:
         run: |
           echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login "${{ env.REGISTRY }}" -u "${{ secrets.REGISTRY_USERNAME }}" --password-stdin
 
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build
+        run: go build .
+        
       - name: Build image
         run: |
           set -euo pipefail
