@@ -17,9 +17,9 @@ jobs:
       #TAG: ${{ github.ref_name }}
       TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'v0.0.0' }}
       REGISTRY: http://44.44.44.10:5000
-      IMAGE_NAME: matricial-sharding
-      FULL_IMAGE: 44.44.44.10:5000/matricial-sharding:${{ github.ref_type == 'tag' && github.ref_name || 'v0.0.0' }}
-      LATEST_IMAGE: 44.44.44.10:5000/matricial-sharding:latest
+      IMAGE_NAME: mantle-s3
+      FULL_IMAGE: 44.44.44.10:5000/mantle-s3:${{ github.ref_type == 'tag' && github.ref_name || 'v0.0.0' }}
+      LATEST_IMAGE: 44.44.44.10:5000/mantle-s3:latest
 
 
       SSH_USER: deploy
