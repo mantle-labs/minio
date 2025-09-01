@@ -9,16 +9,14 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
-
-	"github.com/minio/minio/internal/hash"
 )
 
-func UploadFormData(client *http.Client, url string, values map[string]io.Reader, headers map[string]string) (putResp PutFileResp, err error) {
+func UploadFormData(client *http.Client, url string, values map[string]io.Reader, headers map[string]string) (PutFileResp, error) {
 
 	temp, err := os.CreateTemp("", "sds-upload")
 	if err != nil {
 		fmt.Println(err.Error())
-		return
+		return PutFileResp{}, err
 	}
 
 	defer func() {
@@ -38,19 +36,20 @@ func UploadFormData(client *http.Client, url string, values map[string]io.Reader
 			defer x.Close()
 		}
 
-		if _, ok := r.(*hash.Reader); ok {
+		if _, ok := r.(io.Reader); ok {
 			fw, err = w.CreateFormFile(key, "test")
 			if err != nil {
-				return
+				return PutFileResp{}, err
 			}
 		} else {
 			fw, err = w.CreateFormField(key)
 			if err != nil {
-				return
+				return PutFileResp{}, err
 			}
 		}
+
 		if _, err = io.Copy(fw, r); err != nil {
-			return
+			return PutFileResp{}, err
 		}
 	}
 
@@ -59,7 +58,7 @@ func UploadFormData(client *http.Client, url string, values map[string]io.Reader
 
 	req, err := http.NewRequest(http.MethodPost, url, temp)
 	if err != nil {
-		return
+		return PutFileResp{}, err
 	}
 
 	setHeaders(headers, req)
@@ -69,26 +68,27 @@ func UploadFormData(client *http.Client, url string, values map[string]io.Reader
 	res, err := client.Do(req)
 	if err != nil {
 		err = fmt.Errorf("ERROR: %s", err)
-		return
+		return PutFileResp{}, err
 	}
 
 	if res.StatusCode >= http.StatusBadRequest {
 		b, _ := ioutil.ReadAll(res.Body)
 
-		return PutFileResp{}, parseMantleError(b)
+		err = parseMantleError(b)
+		return PutFileResp{}, err
 	}
 
 	bodyBytes, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return
+		return PutFileResp{}, err
 	}
-
+	putResp := PutFileResp{}
 	err = json.Unmarshal(bodyBytes, &putResp)
 	if err != nil {
-		return
+		return PutFileResp{}, err
 	}
 
-	return
+	return putResp, nil
 }
 
 func Get(client *http.Client, url string, headers map[string]string) (resp *http.Response, err error) {

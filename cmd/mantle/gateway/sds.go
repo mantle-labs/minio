@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,7 +13,6 @@ import (
 	"time"
 
 	"github.com/minio/minio/cmd/mantle/network"
-	"github.com/minio/minio/internal/hash"
 )
 
 type sdsFile struct {
@@ -29,7 +29,38 @@ type sdsFileInfo struct {
 	Id              string `json:"id"`
 }
 
-func Put(f *hash.Reader, fn string, configId string) (string, error) {
+func Shard(ctx context.Context, p string, configId string, object string, fsOpenFile func(ctx context.Context, readPath string, offset int64) (io.ReadCloser, int64, error)) error {
+	r, _, err := fsOpenFile(ctx, p, 0)
+	if err != nil {
+		return err
+	}
+
+	id, err := Put(r, object, configId)
+	if err != nil {
+		return err
+	}
+	r.Close()
+
+	err = os.Remove(p)
+	if err != nil {
+		return err
+	}
+
+	f, err := os.Create(p)
+	defer f.Close()
+	if err != nil {
+		return err
+	}
+
+	n, err := f.Write([]byte(id))
+	if err != nil || n != len(id) {
+		return err
+	}
+
+	return nil
+}
+
+func Put(f io.Reader, fn string, configId string) (string, error) {
 	client := &http.Client{}
 	val := map[string]io.Reader{
 		"file":        f,
