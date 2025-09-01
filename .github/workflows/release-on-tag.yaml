@@ -2,9 +2,6 @@ name: Release on tag
 
 on:
   push:
-    # remove
-    branches:
-      - feature/ga
     tags:
       - 'v*'
 
