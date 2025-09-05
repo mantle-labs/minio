@@ -21,10 +21,10 @@ This README provides quickstart instructions on running MinIO on bare metal hard
     go run ./main.go server {PATH_TO_DIRECTORY_FILES} --address ":XXXX" --console-address ":XXXX"
     ```
 4. ***If you don't have any MinIO server running***
-    1. Create a directory for storing the shards
-    2. Start a minIO server: 
+    1. Create a directory for storing the MinIO server data
+    2. Start a MinIO server: 
     ```sh
-    minio server {PATH_TO_DIRECTORY_SHARDS}
+    minio server {PATH_TO_DIRECTORY_DATA_MINIO}
     ```
     3. Create a bucket the same name as the `config` file in [Matricial-sharding](https://github.com/MantleTechnologies/Matricial-sharding)
     4. Go to the clone : `cd {PATH}/minio`
@@ -32,7 +32,7 @@ This README provides quickstart instructions on running MinIO on bare metal hard
     ```sh 
     go run ./main.go server {PATH_TO_DIRECTORY_FILES} --address ":XXXX" --console-address ":XXXX" 
     ```
-- The files are going to be in the directory create in step 2 and use by the clone and the shards are going to be in the directory where you have your MinIO server running.
+- The files are going to be in the directory create in step 2 and use by the clone and the MinIO server data are going to be in the directory where you have your MinIO server running.
 - This configuration is going to start the Minio-console on the port given at --console-address
 
 ## Container Installation
