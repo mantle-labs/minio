@@ -26,9 +26,8 @@ This README provides quickstart instructions on running MinIO on bare metal hard
     ```sh
     minio server {PATH_TO_DIRECTORY_DATA_MINIO}
     ```
-    3. Create a bucket the same name as the `config` file in [Matricial-sharding](https://github.com/MantleTechnologies/Matricial-sharding)
-    4. Go to the clone : `cd {PATH}/minio`
-    5. The ports can be anything, if you are in a different network interface than the MinIO server:    
+    3. Go to the clone : `cd {PATH}/minio`
+    4. The ports can be anything, if you are in a different network interface than the MinIO server:    
     ```sh 
     go run ./main.go server {PATH_TO_DIRECTORY_FILES} --address ":XXXX" --console-address ":XXXX" 
     ```
