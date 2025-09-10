@@ -8,30 +8,17 @@ This README provides quickstart instructions on running MinIO on bare metal hard
 
 [![MinIO](https://raw.githubusercontent.com/minio/minio/master/.github/logo.svg?sanitize=true)](https://min.io)
 
-## Simplest Configuration
+## Simplest Mantle Configuration
 
 1.  ```sh
     git clone git@github.com:mantle-labs/minio.git
     ```
 2. Create a directory where you want to store your files
-3. ***If you have a MinIO server in a Docker container running***
-    1. Go to the clone : `cd {PATH}/minio`
-    2. The ports must be different from those used by the MinIO server in the Docker container: 
-    ```sh
+3. Go to the clone : `cd {PATH}/minio`
+4. ```sh
     go run ./main.go server {PATH_TO_DIRECTORY_FILES} --address ":XXXX" --console-address ":XXXX"
     ```
-4. ***If you don't have any MinIO server running***
-    1. Create a directory for storing the MinIO server data
-    2. Start a MinIO server: 
-    ```sh
-    minio server {PATH_TO_DIRECTORY_DATA_MINIO}
-    ```
-    3. Go to the clone : `cd {PATH}/minio`
-    4. The ports can be anything, if you are in a different network interface than the MinIO server:    
-    ```sh 
-    go run ./main.go server {PATH_TO_DIRECTORY_FILES} --address ":XXXX" --console-address ":XXXX" 
-    ```
-- The files are going to be in the directory create in step 2 and use by the clone and the MinIO server data are going to be in the directory where you have your MinIO server running.
+- The files are going to be in the directory create in step 2 and use by the clone
 - This configuration is going to start the Minio-console on the port given at --console-address
 
 ## Container Installation
