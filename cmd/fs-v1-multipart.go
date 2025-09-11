@@ -31,6 +31,7 @@ import (
 	"time"
 
 	jsoniter "github.com/json-iterator/go"
+	"github.com/minio/minio/cmd/mantle/gateway"
 	xioutil "github.com/minio/minio/internal/ioutil"
 	"github.com/minio/minio/internal/logger"
 	"github.com/minio/pkg/trie"
@@ -788,6 +789,14 @@ func (fs *FSObjects) CompleteMultipartUpload(ctx context.Context, bucket string,
 	}
 
 	fi, err := fsStatFile(ctx, pathJoin(fs.fsPath, bucket, object))
+	if err != nil {
+		return oi, toObjectErr(err, bucket, object)
+	}
+
+	p := pathJoin(fs.fsPath, bucket, object)
+	configId := getConfigId(ctx, fs.fsPath, bucket)
+	err = gateway.Shard(ctx, p, configId, object, fsOpenFile)
+
 	if err != nil {
 		return oi, toObjectErr(err, bucket, object)
 	}

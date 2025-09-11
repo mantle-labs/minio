@@ -1,0 +1,116 @@
+name: Release on tag
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      #TAG: ${{ github.ref_name }}
+      TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'v0.0.0' }}
+      REGISTRY: http://44.44.44.10:5000
+      IMAGE_NAME: mantle-s3
+      FULL_IMAGE: 44.44.44.10:5000/mantle-s3:${{ github.ref_type == 'tag' && github.ref_name || 'v0.0.0' }}
+      LATEST_IMAGE: 44.44.44.10:5000/mantle-s3:latest
+
+
+      SSH_USER: deploy
+      SSH_HOST: 44.44.44.10
+      SSH_PORT: 22
+
+      WG_ADDRESS: 44.44.44.110/32
+      WG_ALLOWED_IPS: 44.44.44.0/24
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install WireGuard tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wireguard
+
+      - name: Configure WireGuard
+        run: |
+          set -eu
+          sudo mkdir -p /etc/wireguard
+          sudo bash -c 'cat >/etc/wireguard/wg0.conf <<EOF
+          [Interface]
+          Address = ${{ env.WG_ADDRESS }}
+          PrivateKey = ${{ env.WG_PRIVATE_KEY }}
+
+          [Peer]
+          PublicKey = ${{ env.WG_PEER_PUBLIC_KEY }}
+          AllowedIPs = ${{ env.WG_ALLOWED_IPS }}
+          Endpoint = ${{ env.WG_ENDPOINT }}
+          PersistentKeepalive = 25
+          EOF'
+          sudo chmod 600 /etc/wireguard/wg0.conf
+          sudo wg-quick up wg0
+        env:
+          WG_PRIVATE_KEY: ${{ secrets.WG_PRIVATE_KEY }}
+          WG_PEER_PUBLIC_KEY: ${{ secrets.WG_PEER_PUBLIC_KEY }}
+          WG_ENDPOINT: ${{ secrets.WG_ENDPOINT }}
+
+      - name: Verify WireGuard
+        run: |
+          sudo ip a show wg0
+          sudo wg show
+
+
+      #euclyde container registry is http.
+      - name: Allow insecure Docker registry
+        run: |
+          echo '{ "insecure-registries": ["44.44.44.10:5000"] }' | sudo tee /etc/docker/daemon.json
+          sudo systemctl restart docker
+
+      - name: Docker login (private registry)
+        run: |
+          echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login "${{ env.REGISTRY }}" -u "${{ secrets.REGISTRY_USERNAME }}" --password-stdin
+
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build
+        run: go build .
+        
+      - name: Build image
+        run: |
+          set -euo pipefail
+          docker build --pull -t "${FULL_IMAGE}" .
+          docker tag "${FULL_IMAGE}" "${LATEST_IMAGE}"
+
+      - name: Push image (tag + latest)
+        run: |
+          set -euo pipefail
+          docker push "${FULL_IMAGE}"
+          docker push "${LATEST_IMAGE}"
+
+      - name: Write SSH keys
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.CI_DEPLOY }}
+          SSH_PUBLIC_KEY: ${{ secrets.CI_DEPLOY_PUB }}
+        run: |
+          set -eu
+          umask 077
+          mkdir -p ~/.ssh
+          echo "${{ env.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          if [ -n "${{ env.SSH_PUBLIC_KEY }}" ]; then echo "${{ env.SSH_PUBLIC_KEY }}" > ~/.ssh/id_rsa.pub; fi
+
+      - name: Update Docker-compose
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=accept-new deploy@44.44.44.10 'agent-update'
+
+      - name: WireGuard down
+        if: always()
+        run: |
+          sudo wg-quick down wg0 || true
