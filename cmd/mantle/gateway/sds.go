@@ -184,9 +184,9 @@ type StorageStatus struct {
 	Region string `json:"region"`
 }
 
-func Health() ([]StorageStatus, error) {
+func Health(configId string) ([]StorageStatus, error) {
 	client := &http.Client{}
-	resp, err := network.Get(client, urlJoin("health"), setMantleHeaders(""))
+	resp, err := network.Get(client, urlJoin("health"), setMantleHeaders(configId))
 	if err != nil {
 		return []StorageStatus{}, err
 	}
