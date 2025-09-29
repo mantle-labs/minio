@@ -273,8 +273,8 @@ func listObjects(ctx context.Context, obj ObjectLayer, bucket, prefix, marker, d
 		return loi, nil
 	}
 
-	// Over flowing count - reset to maxObjectList.
-	if maxKeys < 0 || maxKeys > maxObjectList {
+	// Reset maxKeys to maxObjectList if negative.
+	if maxKeys < 0 {
 		maxKeys = maxObjectList
 	}
 

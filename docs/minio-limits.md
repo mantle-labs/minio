@@ -28,7 +28,7 @@ For best deployment experience MinIO recommends operating systems RHEL/CentOS 8.
 | Maximum number of parts per upload                                              | 10,000                                        |
 | Part size range                                                                 | 5 MiB to 5 GiB. Last part can be 0 B to 5 GiB |
 | Maximum number of parts returned per list parts request                         | 10000                                         |
-| Maximum number of objects returned per list objects request                     | 1000                                          |
+| Maximum number of objects returned per list objects request                     | no-limit, (default 1000)                      |
 | Maximum number of multipart uploads returned per list multipart uploads request | 1000                                          |
 | Maximum length for bucket names                                                 | 63                                            |
 | Maximum length for object names                                                 | 1024                                          |
