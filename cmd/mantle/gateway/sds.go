@@ -132,8 +132,6 @@ func GetFiles() (files *[]sdsFile, err error) {
 
 	base.RawQuery = params.Encode()
 
-	fmt.Println("test")
-
 	resp, err := network.Get(client, base.String(), setMantleHeaders(""))
 	if err != nil {
 		return nil, err
