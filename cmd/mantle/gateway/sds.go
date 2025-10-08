@@ -119,41 +119,6 @@ func GetFileSize(id string) (s int64, err error) {
 	return 0, nil
 }
 
-func GetFilesCount() (count int, err error) {
-	client := &http.Client{}
-
-	base, err := url.Parse(urlJoin("files"))
-	if err != nil {
-		return 0, err
-	}
-
-	params := base.Query()
-	//When the limit is 0, it will return all the files
-	params.Set("limit", "0")
-	base.RawQuery = params.Encode()
-
-	resp, err := network.Get(client, base.String(), setMantleHeaders(""))
-	if err != nil {
-		return 0, err
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error reading response body:", err)
-		return 0, err
-	}
-
-	var files []sdsFile
-	err = json.Unmarshal(body, &files)
-	if err != nil {
-		fmt.Println("Error parsing JSON:", err)
-		return 0, err
-	}
-
-	return len(files), nil
-}
-
 func GetFiles() (files *[]sdsFile, err error) {
 	client := &http.Client{}
 
@@ -162,15 +127,12 @@ func GetFiles() (files *[]sdsFile, err error) {
 		return nil, err
 	}
 	params := base.Query()
-
-	//Count the total number of files to set the limit
-	totalCount, err := GetFilesCount()
-	if err != nil {
-		return nil, err
-	}
-	params.Set("limit", fmt.Sprintf("%d", totalCount))
+	//When the limit is 0, it will return all the files
+	params.Set("limit", "0")
 
 	base.RawQuery = params.Encode()
+
+	fmt.Println("test")
 
 	resp, err := network.Get(client, base.String(), setMantleHeaders(""))
 	if err != nil {
