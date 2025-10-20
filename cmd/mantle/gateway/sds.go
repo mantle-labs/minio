@@ -119,97 +119,91 @@ func GetFileSize(id string) (s int64, err error) {
 	return 0, nil
 }
 
-func GetFiles() (files *[]sdsFile, err error) {
+func GetFilesByBatch(base *url.URL, offset int, limit int) (batchFiles *[]sdsFile, err error) {
 	client := &http.Client{}
-	//Get chunks of 5000 files
-	offset := 0
-	limit := 5000
+	params := url.Values{}
+	params.Set("limit", fmt.Sprintf("%d", limit))
+	params.Set("offset", fmt.Sprintf("%d", offset))
+	base.RawQuery = params.Encode()
 
-	for {
-		base, err := url.Parse(urlJoin("files"))
-		if err != nil {
-			return nil, err
-		}
+	resp, err := network.Get(client, base.String(), setMantleHeaders(""))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
 
-		params := base.Query()
-		params.Set("limit", fmt.Sprintf("%d", limit))
-		params.Set("offset", fmt.Sprintf("%d", offset))
-		base.RawQuery = params.Encode()
-
-		resp, err := network.Get(client, base.String(), setMantleHeaders(""))
-		if err != nil {
-			return nil, err
-		}
-
-		body, err := ioutil.ReadAll(resp.Body)
-		resp.Body.Close()
-		if err != nil {
-			fmt.Println("Error reading response body:", err)
-			return nil, err
-		}
-
-		if files == nil {
-			err = json.Unmarshal(body, &files)
-			if err != nil {
-				fmt.Println("Error parsing JSON:", err)
-				return nil, err
-			}
-		} else {
-			var batchFiles []sdsFile
-			err = json.Unmarshal(body, &batchFiles)
-			if err != nil {
-				fmt.Println("Error parsing JSON:", err)
-				return nil, err
-			}
-			*files = append(*files, batchFiles...)
-		}
-
-		if len(*files) < offset+limit {
-			fmt.Printf("%d files Retrieved\n", len(*files))
-			break
-		}
-
-		offset += limit
-		fmt.Printf("Retrieved %d files so far...\n", len(*files))
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
 	}
 
-	return files, nil
+	err = json.Unmarshal(body, &batchFiles)
+	if err != nil {
+		return nil, err
+	}
+
+	return batchFiles, nil
 }
 
 func Recovery(root string) {
 	fmt.Println("Starting mantle recovery")
 	fmt.Println("root is at : ", root)
-	files, err := GetFiles()
-	if err != nil {
-		fmt.Println("recovery error: ", err)
-		return
-	}
-
 	timestamp := time.Now().Format("20060102_150405")
 	recoveryDir := filepath.Join(root, timestamp+"_recovery")
-	err = os.MkdirAll(recoveryDir, os.ModePerm)
+	err := os.MkdirAll(recoveryDir, os.ModePerm)
 	if err != nil {
 		fmt.Println("Error creating recovery directory:", err)
 		return
 	}
 
-	fileCount := len(*files)
+	//Get batch of 5000 files
+	offset := 0
+	limit := 5000
 
-	for idx, file := range *files {
-		fullPath := filepath.Join(recoveryDir, file.FileName)
-		err := os.MkdirAll(filepath.Dir(fullPath), os.ModePerm)
+	numFiles := 0
+	doneCount := 0
+
+	base, err := url.Parse(urlJoin("files"))
+	if err != nil {
+		fmt.Println("Error setting the url:", err)
+		return
+	}
+
+	for {
+		batchFiles, err := GetFilesByBatch(base, offset, limit)
 		if err != nil {
-			fmt.Println("Error creating directories:", err)
-			continue
+			fmt.Println("Error getting batch:", err)
+			return
 		}
 
-		err = os.WriteFile(fullPath, []byte(file.ID), 0644)
-		if err != nil {
-			fmt.Println("Error writing file:", err)
-			continue
+		//When nothing if returned, the recovery is completed
+		if len(*batchFiles) == 0 {
+			fmt.Println("Recovery completed")
+			break
 		}
 
-		fmt.Printf("Done file %d out of %d\n", idx+1, fileCount)
+		numFiles += len(*batchFiles)
+		fmt.Printf("Retrieved %d files so far...\n", numFiles)
+
+		for _, file := range *batchFiles {
+			fullPath := filepath.Join(recoveryDir, file.FileName)
+			err = os.MkdirAll(filepath.Dir(fullPath), os.ModePerm)
+			if err != nil {
+				fmt.Println("Error creating directories:", err)
+				continue
+			}
+
+			err = os.WriteFile(fullPath, []byte(file.ID), 0644)
+			if err != nil {
+				fmt.Println("Error writing file:", err)
+				continue
+			}
+
+			doneCount++
+			fmt.Printf("Done file %d out of %d\n", doneCount, numFiles)
+		}
+
+		offset += limit
 	}
 }
 
