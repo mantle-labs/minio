@@ -121,33 +121,56 @@ func GetFileSize(id string) (s int64, err error) {
 
 func GetFiles() (files *[]sdsFile, err error) {
 	client := &http.Client{}
+	//Get chunks of 5000 files
+	offset := 0
+	limit := 5000
 
-	base, err := url.Parse(urlJoin("files"))
-	if err != nil {
-		return nil, err
-	}
-	params := base.Query()
-	//When the limit is 0, it will return all the files
-	params.Set("limit", "0")
+	for {
+		base, err := url.Parse(urlJoin("files"))
+		if err != nil {
+			return nil, err
+		}
 
-	base.RawQuery = params.Encode()
+		params := base.Query()
+		params.Set("limit", fmt.Sprintf("%d", limit))
+		params.Set("offset", fmt.Sprintf("%d", offset))
+		base.RawQuery = params.Encode()
 
-	resp, err := network.Get(client, base.String(), setMantleHeaders(""))
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
+		resp, err := network.Get(client, base.String(), setMantleHeaders(""))
+		if err != nil {
+			return nil, err
+		}
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error reading response body:", err)
-		return nil, err
-	}
+		body, err := ioutil.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			fmt.Println("Error reading response body:", err)
+			return nil, err
+		}
 
-	err = json.Unmarshal(body, &files)
-	if err != nil {
-		fmt.Println("Error parsing JSON:", err)
-		return nil, err
+		if files == nil {
+			err = json.Unmarshal(body, &files)
+			if err != nil {
+				fmt.Println("Error parsing JSON:", err)
+				return nil, err
+			}
+		} else {
+			var batchFiles []sdsFile
+			err = json.Unmarshal(body, &batchFiles)
+			if err != nil {
+				fmt.Println("Error parsing JSON:", err)
+				return nil, err
+			}
+			*files = append(*files, batchFiles...)
+		}
+
+		if len(*files) < offset+limit {
+			fmt.Printf("%d files Retrieved\n", len(*files))
+			break
+		}
+
+		offset += limit
+		fmt.Printf("Retrieved %d files so far...\n", len(*files))
 	}
 
 	return files, nil
