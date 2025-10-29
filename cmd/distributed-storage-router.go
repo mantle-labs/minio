@@ -47,10 +47,12 @@ func registerSDSRouter(router *mux.Router) {
 		resp, err := gateway.Health(configID)
 		if err != nil {
 			http.Error(writer, err.Error(), http.StatusInternalServerError)
+			return
 		}
 
 		if err := json.NewEncoder(writer).Encode(resp); err != nil {
 			http.Error(writer, "Could not encode response", http.StatusInternalServerError)
+			return
 		}
 	})
 }
