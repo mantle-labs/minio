@@ -16,7 +16,7 @@ func registerSDSRouter(router *mux.Router) {
 		CacheAPI:  newCachedObjectLayerFn,
 	}
 
-	router.Methods(http.MethodGet).Path("/health").HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+	router.Methods(http.MethodGet).Path("/{bucket}/health").HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		ctx := newContext(request, writer, "GetBucketHealth")
 
 		defer logger.AuditLog(ctx, writer, request, mustGetClaimsFromToken(request))
@@ -36,13 +36,23 @@ func registerSDSRouter(router *mux.Router) {
 			return
 		}
 
-		resp, err := gateway.Health()
+		fsObj, ok := objectAPI.(*FSObjects)
+
+		if !ok {
+			writeErrorResponse(ctx, writer, errorCodes.ToAPIErr(ErrServerNotInitialized), request.URL)
+			return
+		}
+
+		configID := getConfigId(ctx, fsObj.fsPath, bucket)
+		resp, err := gateway.Health(configID)
 		if err != nil {
 			http.Error(writer, err.Error(), http.StatusInternalServerError)
+			return
 		}
-		
+
 		if err := json.NewEncoder(writer).Encode(resp); err != nil {
 			http.Error(writer, "Could not encode response", http.StatusInternalServerError)
+			return
 		}
 	})
 }
