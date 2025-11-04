@@ -119,17 +119,23 @@ func GetFileSize(id string) (s int64, err error) {
 	return 0, nil
 }
 
-func GetFilesByBatch(base *url.URL, offset int, limit int) (batchFiles *[]sdsFile, err error) {
+func GetFilesByBatch(base *url.URL, offset int, limit int) (*[]sdsFile, error) {
 	client := &http.Client{}
 	params := url.Values{}
 	params.Set("limit", fmt.Sprintf("%d", limit))
 	params.Set("offset", fmt.Sprintf("%d", offset))
-	base.RawQuery = params.Encode()
+	reqURL := *base
+	reqURL.RawQuery = params.Encode()
 
-	resp, err := network.Get(client, base.String(), setMantleHeaders(""))
+	resp, err := network.Get(client, reqURL.String(), setMantleHeaders(""))
 	if err != nil {
 		return nil, err
 	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("Response HTTP status code error: %d", resp.StatusCode)
+	}
+
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
@@ -137,12 +143,14 @@ func GetFilesByBatch(base *url.URL, offset int, limit int) (batchFiles *[]sdsFil
 		return nil, err
 	}
 
+	var batchFiles []sdsFile
+
 	err = json.Unmarshal(body, &batchFiles)
 	if err != nil {
 		return nil, err
 	}
 
-	return batchFiles, nil
+	return &batchFiles, nil
 }
 
 func Recovery(root string) {
@@ -185,7 +193,7 @@ func Recovery(root string) {
 		numFiles += len(*batchFiles)
 		fmt.Printf("Retrieved %d files so far...\n", numFiles)
 
-		for _, file := range *batchFiles {
+		for idx, file := range *batchFiles {
 			fullPath := filepath.Join(recoveryDir, file.FileName)
 			err = os.MkdirAll(filepath.Dir(fullPath), os.ModePerm)
 			if err != nil {
@@ -200,7 +208,7 @@ func Recovery(root string) {
 			}
 
 			doneCount++
-			fmt.Printf("Done file %d out of %d\n", doneCount, numFiles)
+			fmt.Printf("Done file %d/%d in batch, %d files processed\n", idx+1, len(*batchFiles), doneCount)
 		}
 
 		offset += limit
