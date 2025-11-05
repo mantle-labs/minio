@@ -132,11 +132,11 @@ func GetFilesByBatch(base *url.URL, offset int, limit int) (*[]sdsFile, error) {
 		return nil, err
 	}
 
+	defer resp.Body.Close()
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("Response HTTP status code error: %d", resp.StatusCode)
 	}
-
-	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
