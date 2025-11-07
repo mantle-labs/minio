@@ -153,14 +153,30 @@ func GetFilesByBatch(base *url.URL, offset int, limit int) (*[]sdsFile, error) {
 	return &batchFiles, nil
 }
 
+func cleanUpAndFail(tempDir string, errMsg string, err error) {
+	fmt.Printf("Failed Recovery: %s: %v\n", errMsg, err)
+	if tempDir != "" {
+		fmt.Println("Deleting temporary recovery directory...")
+		removeTempErr := os.RemoveAll(tempDir)
+		if removeTempErr != nil {
+			fmt.Printf("Error removing temporary recovery directory: %v\n", removeTempErr)
+		} else {
+			fmt.Println("Temporary recovery directory deleted successfully")
+		}
+	}
+}
+
 func Recovery(root string) {
 	fmt.Println("Starting mantle recovery")
 	fmt.Println("root is at : ", root)
 	timestamp := time.Now().Format("20060102_150405")
-	recoveryDir := filepath.Join(root, timestamp+"_recovery")
-	err := os.MkdirAll(recoveryDir, os.ModePerm)
+	// To avoid partial recovery, we write in a temporary directory first
+	tempRecoveryDir := filepath.Join(root, timestamp+"_recovery_tmp")
+	finalRecoveryDir := filepath.Join(root, timestamp+"_recovery")
+
+	err := os.MkdirAll(tempRecoveryDir, os.ModePerm)
 	if err != nil {
-		fmt.Println("Error creating recovery directory:", err)
+		cleanUpAndFail("", "Error creating temporary recovery directory", err)
 		return
 	}
 
@@ -168,47 +184,52 @@ func Recovery(root string) {
 	offset := 0
 	limit := 5000
 
-	numFiles := 0
 	doneCount := 0
 
 	base, err := url.Parse(urlJoin("files"))
 	if err != nil {
-		fmt.Println("Error setting the url:", err)
+		cleanUpAndFail(tempRecoveryDir, "Error setting the url", err)
 		return
 	}
 
 	for {
 		batchFiles, err := GetFilesByBatch(base, offset, limit)
 		if err != nil {
-			fmt.Println("Error getting batch:", err)
+			cleanUpAndFail(tempRecoveryDir, "Error getting batch", err)
 			return
 		}
 
-		//When nothing if returned, the recovery is completed
+		//When nothing is returned, the recovery is completed
 		if len(*batchFiles) == 0 {
+			// When its done, we rename the temporary directory to the final directory
+			err = os.Rename(tempRecoveryDir, finalRecoveryDir)
+			if err != nil {
+				cleanUpAndFail(tempRecoveryDir, "Error renaming recovery directory", err)
+				return
+			}
 			fmt.Println("Recovery completed")
 			break
 		}
 
-		numFiles += len(*batchFiles)
-		fmt.Printf("Retrieved %d files so far...\n", numFiles)
-
 		for idx, file := range *batchFiles {
-			fullPath := filepath.Join(recoveryDir, file.FileName)
+			fullPath := filepath.Join(tempRecoveryDir, file.FileName)
 			err = os.MkdirAll(filepath.Dir(fullPath), os.ModePerm)
 			if err != nil {
-				fmt.Println("Error creating directories:", err)
-				continue
+				cleanUpAndFail(tempRecoveryDir, "Error creating directory", err)
+				return
 			}
 
 			err = os.WriteFile(fullPath, []byte(file.ID), 0644)
 			if err != nil {
-				fmt.Println("Error writing file:", err)
-				continue
+				cleanUpAndFail(tempRecoveryDir, "Error writing file", err)
+				return
 			}
 
 			doneCount++
-			fmt.Printf("Done file %d/%d in batch, %d files processed\n", idx+1, len(*batchFiles), doneCount)
+			// Log every 100 files to reduce log pollution
+			if doneCount%100 == 0 || idx == len(*batchFiles)-1 {
+				fmt.Printf("Processed %d/%d in batch, (%d done files)\n", idx+1, len(*batchFiles), doneCount)
+			}
 		}
 
 		offset += limit
