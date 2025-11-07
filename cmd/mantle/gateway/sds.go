@@ -153,7 +153,7 @@ func GetFilesByBatch(base *url.URL, offset int, limit int) (*[]sdsFile, error) {
 	return &batchFiles, nil
 }
 
-func cleanUpAndFail(tempDir string, errMsg string, err error) {
+func cleanUpAndLogError(tempDir string, errMsg string, err error) {
 	fmt.Printf("Failed Recovery: %s: %v\n", errMsg, err)
 	if tempDir != "" {
 		fmt.Println("Deleting temporary recovery directory...")
@@ -176,7 +176,7 @@ func Recovery(root string) {
 
 	err := os.MkdirAll(tempRecoveryDir, os.ModePerm)
 	if err != nil {
-		cleanUpAndFail("", "Error creating temporary recovery directory", err)
+		cleanUpAndLogError("", "Error creating temporary recovery directory", err)
 		return
 	}
 
@@ -188,14 +188,14 @@ func Recovery(root string) {
 
 	base, err := url.Parse(urlJoin("files"))
 	if err != nil {
-		cleanUpAndFail(tempRecoveryDir, "Error setting the url", err)
+		cleanUpAndLogError(tempRecoveryDir, "Error setting the url", err)
 		return
 	}
 
 	for {
 		batchFiles, err := GetFilesByBatch(base, offset, limit)
 		if err != nil {
-			cleanUpAndFail(tempRecoveryDir, "Error getting batch", err)
+			cleanUpAndLogError(tempRecoveryDir, "Error getting batch", err)
 			return
 		}
 
@@ -204,7 +204,7 @@ func Recovery(root string) {
 			// When its done, we rename the temporary directory to the final directory
 			err = os.Rename(tempRecoveryDir, finalRecoveryDir)
 			if err != nil {
-				cleanUpAndFail(tempRecoveryDir, "Error renaming recovery directory", err)
+				cleanUpAndLogError(tempRecoveryDir, "Error renaming recovery directory", err)
 				return
 			}
 			fmt.Println("Recovery completed")
@@ -215,13 +215,13 @@ func Recovery(root string) {
 			fullPath := filepath.Join(tempRecoveryDir, file.FileName)
 			err = os.MkdirAll(filepath.Dir(fullPath), os.ModePerm)
 			if err != nil {
-				cleanUpAndFail(tempRecoveryDir, "Error creating directory", err)
+				cleanUpAndLogError(tempRecoveryDir, "Error creating directory", err)
 				return
 			}
 
 			err = os.WriteFile(fullPath, []byte(file.ID), 0644)
 			if err != nil {
-				cleanUpAndFail(tempRecoveryDir, "Error writing file", err)
+				cleanUpAndLogError(tempRecoveryDir, "Error writing file", err)
 				return
 			}
 
