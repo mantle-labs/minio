@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -118,63 +119,120 @@ func GetFileSize(id string) (s int64, err error) {
 	return 0, nil
 }
 
-func GetFiles() (files *[]sdsFile, err error) {
+func GetFilesByBatch(base *url.URL, offset int, limit int) (*[]sdsFile, error) {
 	client := &http.Client{}
-	resp, err := network.Get(client, urlJoin("files"), setMantleHeaders(""))
+	params := url.Values{}
+	params.Set("limit", fmt.Sprintf("%d", limit))
+	params.Set("offset", fmt.Sprintf("%d", offset))
+	reqURL := *base
+	reqURL.RawQuery = params.Encode()
+
+	resp, err := network.Get(client, reqURL.String(), setMantleHeaders(""))
 	if err != nil {
 		return nil, err
 	}
+
 	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("Response HTTP status code error: %d", resp.StatusCode)
+	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println("Error reading response body:", err)
 		return nil, err
 	}
 
-	err = json.Unmarshal(body, &files)
+	var batchFiles []sdsFile
+
+	err = json.Unmarshal(body, &batchFiles)
 	if err != nil {
-		fmt.Println("Error parsing JSON:", err)
 		return nil, err
 	}
 
-	return files, nil
+	return &batchFiles, nil
+}
+
+func cleanUpAndLogError(tempDir string, errMsg string, err error) {
+	fmt.Printf("\nFailed Recovery: %s: %v\n", errMsg, err)
+	if tempDir != "" {
+		fmt.Println("Deleting temporary recovery directory...")
+		removeTempErr := os.RemoveAll(tempDir)
+		if removeTempErr != nil {
+			fmt.Printf("Error removing temporary recovery directory: %v\n", removeTempErr)
+		} else {
+			fmt.Println("Temporary recovery directory deleted successfully")
+		}
+	}
 }
 
 func Recovery(root string) {
 	fmt.Println("Starting mantle recovery")
 	fmt.Println("root is at : ", root)
-	files, err := GetFiles()
-	if err != nil {
-		fmt.Println("recovery error: ", err)
-		return
-	}
-
 	timestamp := time.Now().Format("20060102_150405")
-	recoveryDir := filepath.Join(root, timestamp+"_recovery")
-	err = os.MkdirAll(recoveryDir, os.ModePerm)
+	// To avoid partial recovery, we write in a temporary directory first
+	tempRecoveryDir := filepath.Join(root, timestamp+"_recovery_tmp")
+	finalRecoveryDir := filepath.Join(root, timestamp+"_recovery")
+
+	err := os.MkdirAll(tempRecoveryDir, os.ModePerm)
 	if err != nil {
-		fmt.Println("Error creating recovery directory:", err)
+		cleanUpAndLogError("", "Error creating temporary recovery directory", err)
 		return
 	}
 
-	fileCount := len(*files)
+	//Get batch of 5000 files
+	offset := 0
+	limit := 5000
 
-	for idx, file := range *files {
-		fullPath := filepath.Join(recoveryDir, file.FileName)
-		err := os.MkdirAll(filepath.Dir(fullPath), os.ModePerm)
+	doneCount := 0
+
+	base, err := url.Parse(urlJoin("files"))
+	if err != nil {
+		cleanUpAndLogError(tempRecoveryDir, "Error setting the url", err)
+		return
+	}
+
+	for {
+		batchFiles, err := GetFilesByBatch(base, offset, limit)
 		if err != nil {
-			fmt.Println("Error creating directories:", err)
-			continue
+			cleanUpAndLogError(tempRecoveryDir, "Error getting batch", err)
+			return
 		}
 
-		err = os.WriteFile(fullPath, []byte(file.ID), 0644)
-		if err != nil {
-			fmt.Println("Error writing file:", err)
-			continue
+		//When nothing is returned, the recovery is completed
+		if len(*batchFiles) == 0 {
+			// When its done, we rename the temporary directory to the final directory
+			err = os.Rename(tempRecoveryDir, finalRecoveryDir)
+			if err != nil {
+				cleanUpAndLogError(tempRecoveryDir, "Error renaming recovery directory", err)
+				return
+			}
+			fmt.Println("\nRecovery completed")
+			break
 		}
 
-		fmt.Printf("Done file %d out of %d\n", idx+1, fileCount)
+		for idx, file := range *batchFiles {
+			fullPath := filepath.Join(tempRecoveryDir, file.FileName)
+			err = os.MkdirAll(filepath.Dir(fullPath), os.ModePerm)
+			if err != nil {
+				cleanUpAndLogError(tempRecoveryDir, "Error creating directory", err)
+				return
+			}
+
+			err = os.WriteFile(fullPath, []byte(file.ID), 0644)
+			if err != nil {
+				cleanUpAndLogError(tempRecoveryDir, "Error writing file", err)
+				return
+			}
+
+			doneCount++
+			// Log every 500 files to reduce log pollution
+			if doneCount%500 == 0 || idx == len(*batchFiles)-1 {
+				fmt.Printf("\rProcessed %d/%d in batch, (%d done files)", idx+1, len(*batchFiles), doneCount)
+			}
+		}
+
+		offset += limit
 	}
 }
 
