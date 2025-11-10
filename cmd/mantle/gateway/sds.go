@@ -154,7 +154,7 @@ func GetFilesByBatch(base *url.URL, offset int, limit int) (*[]sdsFile, error) {
 }
 
 func cleanUpAndLogError(tempDir string, errMsg string, err error) {
-	fmt.Printf("Failed Recovery: %s: %v\n", errMsg, err)
+	fmt.Printf("\nFailed Recovery: %s: %v\n", errMsg, err)
 	if tempDir != "" {
 		fmt.Println("Deleting temporary recovery directory...")
 		removeTempErr := os.RemoveAll(tempDir)
@@ -207,7 +207,7 @@ func Recovery(root string) {
 				cleanUpAndLogError(tempRecoveryDir, "Error renaming recovery directory", err)
 				return
 			}
-			fmt.Println("Recovery completed")
+			fmt.Println("\nRecovery completed")
 			break
 		}
 
@@ -226,9 +226,9 @@ func Recovery(root string) {
 			}
 
 			doneCount++
-			// Log every 100 files to reduce log pollution
-			if doneCount%100 == 0 || idx == len(*batchFiles)-1 {
-				fmt.Printf("Processed %d/%d in batch, (%d done files)\n", idx+1, len(*batchFiles), doneCount)
+			// Log every 500 files to reduce log pollution
+			if doneCount%500 == 0 || idx == len(*batchFiles)-1 {
+				fmt.Printf("\rProcessed %d/%d in batch, (%d done files)", idx+1, len(*batchFiles), doneCount)
 			}
 		}
 
