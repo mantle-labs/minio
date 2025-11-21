@@ -9,9 +9,10 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"strings"
 )
 
-func UploadFormData(client *http.Client, url string, values map[string]io.Reader, headers map[string]string) (PutFileResp, error) {
+func UploadFormData(client *http.Client, url string, nr NamedReader, headers map[string]string) (PutFileResp, error) {
 
 	temp, err := os.CreateTemp("", "sds-upload")
 	if err != nil {
@@ -29,28 +30,19 @@ func UploadFormData(client *http.Client, url string, values map[string]io.Reader
 	}()
 
 	w := multipart.NewWriter(temp)
+	r := *nr.R
+	if x, ok := r.(io.Closer); ok {
+		defer x.Close()
+	}
 
-	for key, r := range values {
-		var fw io.Writer
-		if x, ok := r.(io.Closer); ok {
-			defer x.Close()
-		}
+	fw, err := w.CreateFormFile("file", nr.Name)
+	if _, err = io.Copy(fw, r); err != nil {
+		return PutFileResp{}, err
+	}
 
-		if _, ok := r.(io.Reader); ok {
-			fw, err = w.CreateFormFile(key, "test")
-			if err != nil {
-				return PutFileResp{}, err
-			}
-		} else {
-			fw, err = w.CreateFormField(key)
-			if err != nil {
-				return PutFileResp{}, err
-			}
-		}
-
-		if _, err = io.Copy(fw, r); err != nil {
-			return PutFileResp{}, err
-		}
+	fw, err = w.CreateFormField("DisplayName")
+	if _, err = io.Copy(fw, strings.NewReader(nr.Name)); err != nil {
+		return PutFileResp{}, err
 	}
 
 	w.Close()
