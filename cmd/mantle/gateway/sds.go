@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/minio/minio/cmd/mantle/network"
@@ -217,6 +218,10 @@ func Recovery(root string) {
 
 			err = os.WriteFile(fullPath, []byte(file.ID), 0644)
 			if err != nil {
+				if pathErr, ok := err.(*os.PathError); ok && pathErr.Err == syscall.EISDIR {
+					fmt.Printf("Skipping writing %s because destination is a directory: %v\n", fullPath, err)
+					continue
+				}
 				cleanUpAndLogError(tempRecoveryDir, "Error writing file", err)
 				return
 			}
