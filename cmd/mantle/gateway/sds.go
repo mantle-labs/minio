@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/minio/minio/cmd/mantle/network"
@@ -63,12 +62,9 @@ func Shard(ctx context.Context, p string, configId string, object string, fsOpen
 
 func Put(f io.Reader, fn string, configId string) (string, error) {
 	client := &http.Client{}
-	val := map[string]io.Reader{
-		"file":        f,
-		"DisplayName": strings.NewReader(fn),
-	}
+	nr := network.NamedReader{&f, fn}
 
-	putResp, err := network.UploadFormData(client, urlJoin("files"), val, setMantleHeaders(configId))
+	putResp, err := network.UploadFormData(client, urlJoin("files"), nr, setMantleHeaders(configId))
 	if err != nil {
 		//TODO:handle
 		fmt.Println(err.Error())

@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -795,7 +796,8 @@ func (fs *FSObjects) CompleteMultipartUpload(ctx context.Context, bucket string,
 
 	p := pathJoin(fs.fsPath, bucket, object)
 	configId := getConfigId(ctx, fs.fsPath, bucket)
-	err = gateway.Shard(ctx, p, configId, object, fsOpenFile)
+	fullPath := path.Join(bucket, object)
+	err = gateway.Shard(ctx, p, configId, fullPath, fsOpenFile)
 
 	if err != nil {
 		return oi, toObjectErr(err, bucket, object)

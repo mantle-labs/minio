@@ -1125,7 +1125,8 @@ func (fs *FSObjects) putObject(ctx context.Context, bucket string, object string
 		p := pathJoin(fs.fsPath, bucket, object)
 
 		configId := getConfigId(ctx, fs.fsPath, bucket)
-		bId, err := gateway.Put(data, object, configId)
+		objPath := path.Join(bucket, object)
+		bId, err := gateway.Put(data, objPath, configId)
 
 		fsMeta.Meta["etag"] = r.MD5CurrentHexString()
 
